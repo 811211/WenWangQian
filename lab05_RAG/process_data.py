@@ -46,7 +46,7 @@ except ImportError:
 load_dotenv()
 
 class LaborLawProcessor:
-    """日本金龍山淺草觀音寺一百籤"""
+    """日本東京淺草觀音寺一百籤"""
     
     def __init__(self):
         """初始化處理器"""
@@ -362,16 +362,16 @@ class LaborLawProcessor:
             
             # 批量插入embedding資料
             execute_values(cur, """
-                INSERT INTO embeddings (embedding_vector, content, context)
+                INSERT INTO \"2500567RAG\" (embedding_vector, content, context)
                 VALUES %s
             """, embedding_data)
             
             conn.commit()
             cur.close()
             conn.close()
-            
-            print(f"✅ 資料儲存完成！共儲存 {len(embedding_data)} 筆記錄到embeddings表格")
-            
+
+            print(f"✅ 資料儲存完成！共儲存 {len(embedding_data)} 筆記錄到\"2500567RAG\"表格")
+
         except Exception as e:
             print(f"❌ 儲存資料時發生錯誤: {e}")
     
@@ -386,7 +386,7 @@ class LaborLawProcessor:
             conn = psycopg2.connect(**self.db_config)
             cur = conn.cursor()
             
-            cur.execute("SELECT COUNT(*) FROM embeddings")
+            cur.execute("SELECT COUNT(*) FROM \"2500567RAG\"")
             count = cur.fetchone()[0]
             
             cur.close()
@@ -421,7 +421,7 @@ class LaborLawProcessor:
                 try:
                     conn = psycopg2.connect(**self.db_config)
                     cur = conn.cursor()
-                    cur.execute("DELETE FROM embeddings")
+                    cur.execute("DELETE FROM \"2500567RAG\"")
                     conn.commit()
                     cur.close()
                     conn.close()
@@ -465,7 +465,7 @@ def main():
     processor = LaborLawProcessor()
     
     # PDF檔案路徑
-    pdf_path = "勞動基準法.pdf"
+    pdf_path = "日本東京淺草觀音寺一百籤.pdf"
     
     # 檢查檔案是否存在
     if not os.path.exists(pdf_path):
