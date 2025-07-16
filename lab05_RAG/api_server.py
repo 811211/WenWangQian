@@ -1,6 +1,6 @@
 """
-勞動基準法 RAG API Server
-使用 FastAPI 提供 RESTful API 服務
+文王籤解籤 API 伺服器
+提供 API 查詢介面，語義向量搜索 + 繁體中文Reranker
 """
 
 import os
@@ -40,24 +40,24 @@ async def lifespan(app: FastAPI):
     """應用生命週期管理"""
     # 啟動時初始化
     global labor_agent
-    print("🚀 正在初始化勞動基準法 RAG 系統...")
+    print("🚀 正在初始化文王籤解籤系統...")
     try:
-        labor_agent = LaborLawAgent()
-        print("✅ RAG 系統初始化完成")
+        agent = WenWangQianAgent()
+        print("✅ 文王籤解籤系統初始化完成")
     except Exception as e:
-        print(f"❌ RAG 系統初始化失敗: {e}")
+        print(f"❌ 系統初始化失敗: {e}")
         raise
     
     yield
     
     # 關閉時清理
-    print("🔄 正在關閉 RAG 系統...")
+    print("🔄 正在關閉文王籤解籤系統...")
     labor_agent = None
 
 # 創建 FastAPI 應用
 app = FastAPI(
-    title="勞動基準法 RAG API",
-    description="提供勞動基準法智能查詢服務的 RESTful API",
+    title="文王籤解籤 API",
+    description="提供文王籤智能解籤查詢服務的 RESTful API",
     version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -212,7 +212,7 @@ async def query_with_technical_details(agent, query: str, conversation_history: 
 async def root():
     """根路徑"""
     return {
-        "message": "勞動基準法 RAG API Server",
+        "message": "文王籤解籤 API Server",
         "version": "2.0.0",
         "docs": "/docs"
     }
@@ -252,11 +252,11 @@ async def health_check():
 
 @app.post("/query", response_model=QueryResponse)
 async def query_labor_law(request: QueryRequest):
-    """查詢勞動基準法"""
+    
     global labor_agent
     
     if not labor_agent:
-        raise HTTPException(status_code=503, detail="RAG 系統未初始化")
+        raise HTTPException(status_code=503, detail="文王籤解籤系統未初始化")
     
     start_time = datetime.now()
     
@@ -409,7 +409,7 @@ async def general_exception_handler(request, exc):
 
 def main():
     """啟動 API 服務器"""
-    print("🚀 啟動勞動基準法 RAG API Server...")
+    print("🚀 啟動文王籤解籤 API Server...")
     
     uvicorn.run(
         "api_server:app",

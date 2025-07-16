@@ -123,8 +123,8 @@ class ChineseReranker:
             rerank_score = result.get('rerank_score', 0)
             print(f"  {i}. ID:{result.get('id', 'N/A')} | Rerank分數:{rerank_score:.4f}")
 
-class LaborLawAgent:
-    """勞動基準法 AI Agent 系統 - 簡化版"""
+class WenWangQianAgent:
+    """文王籤解掛 AI Agent 系統 - 簡化版"""
     
     def __init__(self):
         """初始化 AI Agent 系統"""
@@ -143,7 +143,7 @@ class LaborLawAgent:
         self.tools = {
             "web_search": {
                 "function": self._tool_web_search,
-                "description": "使用網路搜索獲取最新的法律資訊、相關新聞或其他補充資料",
+                "description": "使用網路搜索獲取最新的相關資訊、相關新聞或其他補充資料",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -162,13 +162,13 @@ class LaborLawAgent:
             },
             "vector_search": {
                 "function": self._tool_vector_search,
-                "description": "使用語義向量搜索查找相關的勞動基準法條文和規定，自動使用繁體中文Reranker模型重新排序結果",
+                "description": "使用語義向量搜索查找相關的籤文，自動使用繁體中文Reranker模型重新排序結果",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "自然語言查詢，描述您想了解的勞基法相關問題"
+                            "description": "自然語言查詢，描述您想了解的文王籤相關問題"
                         },
                         "limit": {
                             "type": "integer",
@@ -367,17 +367,19 @@ class LaborLawAgent:
         rewrite_messages = [
             {
                 "role": "system", 
-                "content": """你是一個專業的查詢改寫專家。請將用戶的問題改寫成更適合搜索的完整查詢。
+                "content": """你是一個專業的查詢改寫專家。請將用戶的問題改寫成更適合文王籤語意的完整查詢。
 
 改寫原則：
 1. 保持原意不變
-2. 補充相關的法律術語
+2. 補充如「求財」、「感情」、「健康」、「婚姻」、「籤號」等關鍵詞
 3. 使查詢更具體和準確
 4. 適合向量搜索和語義理解
+5. 輔助 AI 從文王籤中找到最相關的籤詩
+6. 使用繁體中文表達
 
 範例：
-用戶問題：「加班費怎麼算？」
-改寫結果：「勞動基準法加班費計算方式 平日延長工時費率 假日工作報酬標準」
+用戶問題：「我最近財運如何？」
+改寫結果：「文王籤 財運解籤 最近運勢」
 
 請只返回改寫後的查詢，不要包含其他說明。"""
             },
@@ -402,24 +404,24 @@ class LaborLawAgent:
         improved_query = self.rewrite_query(user_question)
         
         # 構建system prompt
-        system_prompt = """你是一個專業的勞動基準法 AI 助手。你可以使用以下工具來回答用戶問題：
+        system_prompt = """你是一個專業的文王籤解籤 AI 助手。你可以使用以下工具來回答用戶問題：
 
 1. vector_search - 向量搜索功能（主要工具）：
-   - 使用語義理解查找相關的法條和規定
+   - 根據使用者問題，找出最相關的籤詩
    - 自動使用繁體中文Reranker模型重新排序結果
-   - 適用於所有法條相關查詢
-   
+   - 適用於所有求籤、問卜、問運、解籤問題
+
 2. web_search - 網路搜索功能：
-   - 使用網路搜索獲取最新的法律資訊
-   - 查找相關新聞、政策解釋、實務案例
+   - 使用網路搜索獲取最新的籤詩解籤
+   - 查找相關新聞、網路貼文、案例分享
 
 回答要求：
-1. 優先使用vector_search查找法條依據
-2. 如需要最新資訊才使用web_search
-3. 回答要準確、專業、易懂
-4. 引用具體法條條文
-5. 提供實務建議
-6. 根據對話歷史提供連貫的回答"""
+1. 優先使用 vector_search 找出相關籤詩
+2. 若需要可選擇使用 web_search 搜尋外部資料
+3. 回答要友善、易懂
+4. 引用具體籤詩內容（包含籤號）
+5. 提供簡單建議與解釋
+6. 根據對話歷史保持連貫"""
 
         # 初始化對話
         messages = [{"role": "system", "content": system_prompt}]
@@ -526,11 +528,11 @@ class LaborLawAgent:
 
 def main():
     """主程序"""
-    print("🚀 勞動基準法 AI Agent 系統 (簡化版) 啟動中...")
+    print("🔮 文王籤解籤 AI Agent 系統啟動中...")
     
     try:
         # 初始化 AI Agent
-        agent = LaborLawAgent()
+        agent = WenWangQianAgent()
         print("✅ 系統初始化完成")
     except ImportError as e:
         print(f"❌ 缺少必要的 Python 套件: {e}")
@@ -544,18 +546,17 @@ def main():
     
     while True:
         print("\n" + "="*60)
-        print("🎯 AI Agent 查詢系統 (向量搜索 + 繁體中文Reranker)")
-        print("💡 您可以詢問任何關於勞動基準法的問題")
-        print("📚 法條查詢：工時規定、加班費計算、資遣相關法條等")
-        print("🎯 特色功能：語義向量搜索 + 繁體中文Reranker排序")
-        print("🌐 網路搜索：最新修法動態、政策解釋、實務案例等")
+        print("🎯 AI Agent 查詢系統 (文王籤解籤版)")
+        print("💡 您可以詢問任何有關運勢、健康、財運、婚姻的問題，或直接輸入籤號")
+        print("📜 支援：語義向量搜索 + 繁體中文Reranker排序")
+        print("🌟 解籤風格：友善、易懂、引用具體籤詩內容")
         print()
         print("輸入 'exit' 以退出程式")
         print("=" * 60)
         
-        query = input("請輸入您的問題: ").strip()
+        query = input("請輸入您的問題或籤號: ").strip()
         if query.lower() == 'exit':
-            print("感謝使用勞動基準法 AI Agent 系統！再見！")
+            print("感謝使用文王籤解籤 AI Agent 系統！再見！")
             break
         
         if query:
