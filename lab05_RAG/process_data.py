@@ -46,7 +46,7 @@ except ImportError:
 load_dotenv()
 
 class LaborLawProcessor:
-    """勞動基準法PDF處理器"""
+    """日本金龍山淺草觀音寺一百籤"""
     
     def __init__(self):
         """初始化處理器"""
