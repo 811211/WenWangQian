@@ -470,6 +470,8 @@ class RAGStreamlitApp:
         Returns:
             tuple: (response, total_input_tokens, total_output_tokens, technical_details)
         """
+        
+       
         # 使用共用的追蹤功能
         response, technical_details = execute_query_with_tracking(st.session_state.agent, query, conversation_history)
         
@@ -599,10 +601,11 @@ class RAGStreamlitApp:
                         
                         # 完整內容 - 使用checkbox來控制顯示
                         if chunk.get("full_content"):
-                            key_suffix = chunk.get("id", i)
-                            show_full = st.checkbox(f"顯示完整內容", key=f"show_full_{key_suffix}")
+                            unique_key = f"{chunk.get('id', 'noid')}_{i}"
+                            show_full = st.checkbox(f"顯示完整內容", key=f"show_full_{unique_key}")
                             if show_full:
-                                st.text_area("完整內容:", value=chunk["full_content"], height=150, disabled=True, key=f"chunk_content_{key_suffix}")
+                                st.text_area("完整內容:", value=chunk["full_content"], height=150, disabled=True, key=f"chunk_content_{unique_key}")
+
                         
                         st.divider()
                 

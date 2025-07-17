@@ -38,7 +38,7 @@ class WenWangQianProcessor:
                 if m:
                     num = m.group(1)
                     content = m.group(2).strip().replace('\n', ' ')
-                    context = f"文王籤 第 {num} 籤"
+                    context = f"文王籤 籤號 {num} "
                     results.append({
                         'content': content,
                         'context': context,

@@ -193,7 +193,7 @@ class WenWangQianAgent:
                 created_at,
                 cosine_similarity(embedding_vector, %s::double precision[]) as similarity,
                 length(content) as char_count
-            FROM embeddings
+            FROM \"2500567RAG\"
             WHERE embedding_vector IS NOT NULL
             ORDER BY similarity DESC
             LIMIT %s;
@@ -320,10 +320,16 @@ class WenWangQianAgent:
 4. 適合向量搜索和語義理解
 5. 輔助 AI 從文王籤中找到最相關的籤詩
 6. 使用繁體中文表達
+7. 若有數字輸入請優先視為籤號並優先使用籤號
 
 範例：
 用戶問題：「我最近財運如何？」
 改寫結果：「文王籤 財運解籤 最近運勢」
+
+範例:
+用戶問題：: '123'
+改寫結果: '文王籤 籤號 123 '
+
 
 請只返回改寫後的查詢，不要包含其他說明。"""
             },
@@ -342,6 +348,35 @@ class WenWangQianAgent:
     def generate_agent_response(self, user_question: str, conversation_history: List[Dict[str, str]] = None) -> str:
         """生成 AI Agent 回應"""
         print(f"🤖 AI Agent 開始處理問題: '{user_question}'")
+
+        match = re.search(r'\b(\d+)\b', user_question)
+        print(f"🔍 re.search() 匹配結果: {match}")
+
+        if match:
+            lot_number = match.group(1)
+            print(f"🎯 抽取到數字 lot_number = {lot_number}")
+            sql = f"SELECT content FROM \"2500567RAG\" WHERE context = '文王籤 籤號 {lot_number} '"
+            try:
+                print("⚡ 嘗試建立資料庫連線...")
+                conn = psycopg2.connect(
+                    host=os.getenv("PG_HOST", "localhost"),
+                    port=int(os.getenv("PG_PORT", 5432)),
+                    dbname=os.getenv("PG_DATABASE", "labor_law_rag"),
+                    user=os.getenv("PG_USER", "postgres"),
+                    password=os.getenv("PG_PASSWORD", "")
+                )
+                print("✅ 資料庫連線成功")
+                with conn.cursor() as cur:
+                    print(f"⚡ 執行 SQL 查詢: {sql}")
+                    cur.execute(sql)
+                    row = cur.fetchone()
+                conn.close()
+                if row:
+                    print(f"🎯 直接命中文王籤 第 {lot_number} 籤")
+                    return row[0]
+            except Exception as e:
+                print(f"❌ 籤號直接查詢錯誤: {e}")
+
         
         # 步驟1：改寫和完善查詢
         print("\n📝 步驟1: 查詢改寫與完善")
@@ -355,9 +390,7 @@ class WenWangQianAgent:
    - 自動使用繁體中文Reranker模型重新排序結果
    - 適用於所有求籤、問卜、問運、解籤問題
 
-2. web_search - 網路搜索功能：
-   - 使用網路搜索獲取最新的籤詩解籤
-   - 查找相關新聞、網路貼文、案例分享
+
 
 回答要求：
 1. 優先使用 vector_search 找出相關籤詩
@@ -384,7 +417,7 @@ class WenWangQianAgent:
         messages.append({"role": "user", "content": improved_query})
         
         # AI Agent 迭代處理
-        max_iterations = 5
+        max_iterations = 3
         for iteration in range(max_iterations):
             print(f"\n🔄 AI Agent 迭代 {iteration + 1}/{max_iterations}")
             

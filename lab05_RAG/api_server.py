@@ -9,6 +9,9 @@ import asyncio
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from contextlib import asynccontextmanager
+import re
+import psycopg2
+
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -252,22 +255,62 @@ async def health_check():
 
 @app.post("/query", response_model=QueryResponse)
 async def query_labor_law(request: QueryRequest):
-    
     global labor_agent
-    
+
     if not labor_agent:
         raise HTTPException(status_code=503, detail="文王籤解籤系統未初始化")
-    
+
     start_time = datetime.now()
-    
+
     try:
-        # 生成會話 ID
         session_id = request.session_id or f"session_{int(start_time.timestamp())}"
-        
-        # 執行查詢
-        print(f"🔍 處理查詢: {request.question[:50]}...")
-        
-        # 轉換前端傳來的對話歷史格式
+        question = request.question.strip()
+        print(f"🔍 處理查詢: {question[:50]}...")
+
+        # ⭐ 強化籤號偵測：純數字 or 包含 pattern
+        pure_number = question.isdigit()
+        pattern_match = re.search(r'(?:第\s*(\d+)\s*籤)|(?:籤號\s*(\d+))', question)
+
+        lot_number = None
+        if pure_number:
+            lot_number = question
+        elif pattern_match:
+            lot_number = pattern_match.group(1) or pattern_match.group(2)
+
+        if lot_number:
+            print(f"⚡ 偵測到籤號查詢 lot_number={lot_number}")
+            sql = f"SELECT content FROM \"2500567RAG\" WHERE context = '文王籤 籤號 {lot_number} '"
+            try:
+                conn = psycopg2.connect(
+                    host=os.getenv("PG_HOST", "localhost"),
+                    port=int(os.getenv("PG_PORT", 5432)),
+                    dbname=os.getenv("PG_DATABASE", "labor_law_rag"),
+                    user=os.getenv("PG_USER", "postgres"),
+                    password=os.getenv("PG_PASSWORD", "")
+                )
+                with conn.cursor() as cur:
+                    cur.execute(sql)
+                    row = cur.fetchone()
+                conn.close()
+
+                if row:
+                    processing_time = (datetime.now() - start_time).total_seconds()
+                    print(f"✅ API 直接命中文王籤 第 {lot_number} 籤")
+                    return QueryResponse(
+                        answer=row[0],
+                        session_id=session_id,
+                        timestamp=datetime.now().isoformat(),
+                        processing_time=processing_time,
+                        technical_details=None
+                    )
+                else:
+                    print(f"⚠️ API 未找到文王籤 第 {lot_number} 籤，fallback 到 AI Agent")
+
+            except Exception as e:
+                print(f"❌ API 籤號 SQL 查詢錯誤: {e}")
+                print("⚠️ fallback 到 AI Agent")
+
+        # fallback：完全沒有檢測到籤號 or 查詢失敗
         conversation_history = []
         if request.messages:
             for msg in request.messages:
@@ -275,35 +318,34 @@ async def query_labor_law(request: QueryRequest):
                     "role": msg.role,
                     "content": msg.content
                 })
-        
-        # 如果需要技術細節，使用追蹤器
+
         if request.include_technical_details:
-            answer, technical_details = await query_with_technical_details(labor_agent, request.question, conversation_history)
+            answer, technical_details = await query_with_technical_details(
+                labor_agent, question, conversation_history
+            )
         else:
-            answer = labor_agent.generate_agent_response(request.question, conversation_history)
+            answer = labor_agent.generate_agent_response(question, conversation_history)
             technical_details = None
-        
-        # 計算處理時間
+
         processing_time = (datetime.now() - start_time).total_seconds()
-        
-        # 構建回應
-        response = QueryResponse(
+        print(f"✅ API 查詢完成，處理時間: {processing_time:.2f}秒")
+
+        return QueryResponse(
             answer=answer,
             session_id=session_id,
             timestamp=datetime.now().isoformat(),
             processing_time=processing_time,
             technical_details=technical_details
         )
-        
-        print(f"✅ 查詢完成，處理時間: {processing_time:.2f}秒")
-        return response
-        
+
     except Exception as e:
-        print(f"❌ 查詢處理失敗: {e}")
+        print(f"❌ API 查詢處理失敗: {e}")
         raise HTTPException(
-            status_code=500, 
+            status_code=500,
             detail=f"查詢處理失敗: {str(e)}"
         )
+
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
