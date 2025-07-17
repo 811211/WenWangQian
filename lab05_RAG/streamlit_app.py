@@ -191,6 +191,8 @@ from dotenv import load_dotenv
 # 導入本地模塊
 from query_test import WenWangQianAgent
 from utils.tracking_utils import execute_query_with_tracking
+from utils.database_config import get_database_config
+import psycopg2
 
 # 載入環境變數
 load_dotenv()
@@ -299,7 +301,7 @@ class RAGStreamlitApp:
             "我最近財運如何？",
             "我的感情運勢會如何發展？",
             "健康方面有什麼需要注意？",
-            "第123籤是什麼意思？"
+            "123"
 ]
             
             for i, query in enumerate(example_queries, 1):
@@ -470,16 +472,31 @@ class RAGStreamlitApp:
         Returns:
             tuple: (response, total_input_tokens, total_output_tokens, technical_details)
         """
+        db_config = get_database_config()
         
-       
+        if query.isdigit():
+            lot_number = query
+            sql = f"SELECT content FROM \"2500567RAG\" WHERE context = '文王籤 籤號 {lot_number} '"
+            try:
+                conn = psycopg2.connect(**db_config)
+                with conn.cursor() as cur:
+                    cur.execute(sql)
+                    row = cur.fetchone()
+                conn.close()
+                if row:
+                    return row[0], 0, 0, {}  # 回傳格式符合主程式需要
+            except Exception as e:
+                st.error(f"❌ 直接 DB 查詢失敗: {e}")
+
+        
         # 使用共用的追蹤功能
-        response, technical_details = execute_query_with_tracking(st.session_state.agent, query, conversation_history)
+        response = st.session_state.agent.generate_agent_response(query, conversation_history)
         
         # 從技術細節中提取 token 使用量
-        token_usage = technical_details.get('token_usage', {})
-        total_input_tokens = token_usage.get('input', 0)
-        total_output_tokens = token_usage.get('output', 0)
-        
+        technical_details = {}
+        total_input_tokens = 0
+        total_output_tokens = 0
+
         return response, total_input_tokens, total_output_tokens, technical_details
     
     def process_query(self, query: str):

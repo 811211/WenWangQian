@@ -267,50 +267,7 @@ async def query_labor_law(request: QueryRequest):
         question = request.question.strip()
         print(f"🔍 處理查詢: {question[:50]}...")
 
-        # ⭐ 強化籤號偵測：純數字 or 包含 pattern
-        pure_number = question.isdigit()
-        pattern_match = re.search(r'(?:第\s*(\d+)\s*籤)|(?:籤號\s*(\d+))', question)
-
-        lot_number = None
-        if pure_number:
-            lot_number = question
-        elif pattern_match:
-            lot_number = pattern_match.group(1) or pattern_match.group(2)
-
-        if lot_number:
-            print(f"⚡ 偵測到籤號查詢 lot_number={lot_number}")
-            sql = f"SELECT content FROM \"2500567RAG\" WHERE context = '文王籤 籤號 {lot_number} '"
-            try:
-                conn = psycopg2.connect(
-                    host=os.getenv("PG_HOST", "localhost"),
-                    port=int(os.getenv("PG_PORT", 5432)),
-                    dbname=os.getenv("PG_DATABASE", "labor_law_rag"),
-                    user=os.getenv("PG_USER", "postgres"),
-                    password=os.getenv("PG_PASSWORD", "")
-                )
-                with conn.cursor() as cur:
-                    cur.execute(sql)
-                    row = cur.fetchone()
-                conn.close()
-
-                if row:
-                    processing_time = (datetime.now() - start_time).total_seconds()
-                    print(f"✅ API 直接命中文王籤 第 {lot_number} 籤")
-                    return QueryResponse(
-                        answer=row[0],
-                        session_id=session_id,
-                        timestamp=datetime.now().isoformat(),
-                        processing_time=processing_time,
-                        technical_details=None
-                    )
-                else:
-                    print(f"⚠️ API 未找到文王籤 第 {lot_number} 籤，fallback 到 AI Agent")
-
-            except Exception as e:
-                print(f"❌ API 籤號 SQL 查詢錯誤: {e}")
-                print("⚠️ fallback 到 AI Agent")
-
-        # fallback：完全沒有檢測到籤號 or 查詢失敗
+        # 直接 fallback 到 AI Agent（完全不做籤號判斷）
         conversation_history = []
         if request.messages:
             for msg in request.messages:
@@ -344,6 +301,7 @@ async def query_labor_law(request: QueryRequest):
             status_code=500,
             detail=f"查詢處理失敗: {str(e)}"
         )
+
 
 
 

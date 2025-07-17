@@ -6,7 +6,9 @@ Provides centralized Azure OpenAI client initialization and embedding services
 import os
 from typing import List, Optional, Tuple
 from openai import AzureOpenAI
+from dotenv import load_dotenv
 
+load_dotenv()
 
 def get_azure_openai_client() -> AzureOpenAI:
     """
