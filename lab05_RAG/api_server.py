@@ -17,11 +17,11 @@ from pydantic import BaseModel, Field
 import uvicorn
 
 # 導入現有的 RAG 系統
-from query_test import LaborLawAgent
+from query_test import WenWangQianAgent
 from utils.tracking_utils import execute_query_with_tracking
 
 # 全局變數
-labor_agent: Optional[LaborLawAgent] = None
+wen_wang_qian_agent: Optional[WenWangQianAgent] = None
 
 def json_serializer(obj):
     """自定義 JSON 序列化器，處理 datetime 和其他不可序列化的物件"""

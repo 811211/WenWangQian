@@ -1,5 +1,5 @@
 """
-勞動基準法 RAG 系統 Streamlit UI
+文王籤解籤系統 Streamlit UI
 基於 lab04 優化的進階版本，整合 AI Agent 功能
 """
 
@@ -7,391 +7,179 @@ import streamlit as st
 
 # 必須首先設定頁面配置
 st.set_page_config(
-    page_title="勞動基準法 RAG 查詢系統",
+    page_title="文王籤智慧解籤",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # 完整的深色主題CSS配色
+# 完整 Streamlit CSS：保留原來格式，僅修改為文王籤主題色（米色背景、深紅字、金色點綴）
+
 st.markdown("""
 <style>
-    /* === 全局基礎樣式 === */
+    /* 全局背景與文字 */
     .stApp {
-        background-color: #141414 !important;
-        color: #f0f0f0 !important;
+        background-color: #FCE5A0 !important;
+        color: #4B0000 !important;
     }
-    
-    /* 主要內容區域 */
     .main .block-container {
-        background-color: #141414 !important;
-        color: #f0f0f0 !important;
-        padding-top: 1rem !important;
+        background-color: #FCE5A0 !important;
+        color: #4B0000 !important;
     }
-    
-    /* === 側邊欄樣式 === */
-    .css-1d391kg, .css-1y4p8pa, .css-17eq0hr, section[data-testid="stSidebar"] {
-        background-color: #262626 !important;
+
+    /* Sidebar 基本樣式 */
+    section[data-testid="stSidebar"] {
+        background-color: #F5DEB3 !important;
     }
-    
-    .css-1d391kg .css-1y4p8pa, section[data-testid="stSidebar"] > div {
-        background-color: #262626 !important;
-        color: #f0f0f0 !important;
-    }
-    
-    /* 側邊欄文字 */
     section[data-testid="stSidebar"] * {
-        color: #f0f0f0 !important;
+        color: #4B0000 !important;
     }
-    
-    /* === 按鈕樣式 === */
-    .stButton > button,
-    button[kind="secondary"],
-    button[kind="primary"],
-    .css-1cpxqw2,
-    .css-19rxjzo,
-    .css-bva2kr,
-    .css-1x8cf1d,
-    button {
-        background-color: #262626 !important;
-        color: #d9d9d9 !important;
-        border: 1px solid #404040 !important;
+
+    /* Sidebar header 移除黑底 */
+    section[data-testid="stSidebar"] div[style*="background-color: rgb(26, 26, 26)"] {
+        background-color: #F5DEB3 !important;
+        color: #4B4B4B !important;
+    }
+
+    /* Sidebar 範例查詢按鈕 */
+    section[data-testid="stSidebar"] button {
+        background-color: #FFD700 !important;
+        color: #4B0000 !important;
+        border: 1px solid #4B0000 !important;
         border-radius: 6px !important;
     }
-    
-    .stButton > button:hover,
-    button[kind="secondary"]:hover,
-    button[kind="primary"]:hover,
-    .css-1cpxqw2:hover,
-    .css-19rxjzo:hover,
-    .css-bva2kr:hover,
-    .css-1x8cf1d:hover,
-    button:hover {
-        background-color: #404040 !important;
-        border-color: #595959 !important;
-        color: #ffffff !important;
+    section[data-testid="stSidebar"] button:hover {
+        background-color: #8B0000 !important;
+        color: #FFFFFF !important;
     }
-    
-    /* 強制覆蓋白底黑字的反白效果 */
-    .stButton > button:hover *,
-    button:hover *,
-    button[kind="secondary"]:hover *,
-    button[kind="primary"]:hover *,
-    button:hover span,
-    button:hover div,
-    .stButton:hover *,
-    .stButton:hover span,
-    .stButton:hover div {
-        background-color: transparent !important;
-        color: #ffffff !important;
+
+    /* 中央 header 文字灰色 */
+    .main .block-container h1,
+    .main .block-container h2 {
+        color: #4B4B4B !important;
     }
-    
-    /* 修正按鈕反白時的文字對比度問題 */
-    button:hover,
-    .stButton:hover button,
-    button[data-testid]:hover {
-        background-color: #404040 !important;
-        color: #ffffff !important;
+
+    /* 中央 v2.0 badge 金底紅字 */
+    .stMarkdown span[style*="background"] {
+        background-color: #FFD700 !important;
+        color: #4B0000 !important;
     }
-    
-    /* 確保按鈕點擊狀態也保持良好對比度 */
-    button:active,
-    button:focus,
-    .stButton:active button,
-    .stButton:focus button {
-        background-color: #595959 !important;
-        color: #ffffff !important;
+
+    /* Sidebar 與主區域 span 統一文字灰色 */
+    .stMarkdown span {
+        color: #4B4B4B !important;
     }
-    
-    .stButton > button:active, 
-    .stButton > button:focus,
-    button[kind="secondary"]:active,
-    button[kind="secondary"]:focus,
-    button[kind="primary"]:active,
-    button[kind="primary"]:focus,
-    .css-1cpxqw2:active,
-    .css-1cpxqw2:focus,
-    .css-19rxjzo:active,
-    .css-19rxjzo:focus,
-    .css-bva2kr:active,
-    .css-bva2kr:focus,
-    .css-1x8cf1d:active,
-    .css-1x8cf1d:focus,
-    button:active,
-    button:focus {
-        background-color: #404040 !important;
-        border-color: #595959 !important;
-        color: #ffffff !important;
-        box-shadow: none !important;
-    }
-    
-    /* === 輸入框樣式 === */
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea,
-    .stSelectbox > div > div > div,
-    .stNumberInput > div > div > input {
-        background-color: #262626 !important;
-        color: #d9d9d9 !important;
-        border: 1px solid #404040 !important;
+
+    /* Chat input */
+    .stChatInput textarea {
+        background-color: #FFF8E7 !important;
+        color: #4B0000 !important;
+        border: 1px solid #4B0000 !important;
         border-radius: 6px !important;
     }
-    
-    .stTextInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus {
-        border-color: #1677ff !important;
-        box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2) !important;
+
+    /* Chat messages */
+    .stChatMessage.user {
+        background-color: #FFF2CC !important;
+        color: #4B0000 !important;
     }
-    
-    /* 聊天輸入框 - 所有可能的選擇器 */
-    .stChatInput textarea,
-    .stChatInput > div textarea,
-    .stChatInput > div > div textarea,
-    .stChatInput > div > div > div textarea,
-    .stChatInput > div > div > div > div textarea,
-    .stChatInput > div > div > div > div > div > textarea,
-    div[data-testid="stChatInput"] textarea,
-    div[data-testid="stChatInput"] > div textarea,
-    div[data-testid="stChatInput"] > div > div textarea {
-        background-color: #262626 !important;
-        color: #d9d9d9 !important;
-        border: 1px solid #404040 !important;
-        border-radius: 6px !important;
+    .stChatMessage.assistant {
+        background-color: #8B0000 !important;
+        color: #FFFFFF !important;
     }
-    
-    /* 聊天輸入框容器 */
-    .stChatInput,
-    div[data-testid="stChatInput"],
-    .stChatInput > div,
-    div[data-testid="stChatInput"] > div {
-        background-color: #141414 !important;
-        border: none !important;
+
+    /* 中央歡迎訊息文字灰色 */
+    div[style*="text-align: center"] p,
+    div[style*="text-align: center"] div {
+        color: #4B4B4B !important;
     }
-    
-    /* === 聊天訊息樣式 === */
-    .stChatMessage {
-        background-color: #1f1f1f !important;
-        border: 1px solid #303030 !important;
-        border-radius: 8px !important;
-        color: #f0f0f0 !important;
+
+    /* expander header 和 content 米色化 */
+    .streamlit-expanderHeader,
+    div.streamlit-expanderHeader {
+        background-color: #FCE5A0 !important;
+        color: #4B0000 !important;
+        border: 1px solid #4B0000 !important;
     }
-    
-    .stChatMessage .stMarkdown {
-        color: #f0f0f0 !important;
+    .streamlit-expanderContent,
+    div.streamlit-expanderContent {
+        background-color: #FCE5A0 !important;
+        color: #4B0000 !important;
     }
-    
-    .stChatMessage .stMarkdown p {
-        color: #d9d9d9 !important;
+
+    /* 強制移除任何黑色背景框（主內容區塊） */
+    .main .block-container div[style*="background-color: rgb(26, 26, 26)"] {
+        background-color: #FCE5A0 !important;
+        color: #4B4B4B !important;
     }
-    
-    /* === Metric 樣式 === */
+
+    /* Metric container */
     .metric-container,
-    .css-1r6slb0,
     div[data-testid="metric-container"] {
-        background-color: #1f1f1f !important;
-        padding: 12px !important;
-        border-radius: 6px !important;
-        border: 1px solid #303030 !important;
+        background-color: #F5DEB3 !important;
+        color: #4B0000 !important;
     }
-    
-    div[data-testid="metric-container"] > div {
-        color: #f0f0f0 !important;
-    }
-    
-    div[data-testid="metric-container"] > div > div {
-        color: #d9d9d9 !important;
-    }
-    
-    /* === Expander 樣式 === */
-    .streamlit-expanderHeader {
-        background-color: #1f1f1f !important;
-        color: #f0f0f0 !important;
-        border: 1px solid #303030 !important;
-        border-radius: 6px !important;
-    }
-    
-    .streamlit-expanderContent {
-        background-color: #1f1f1f !important;
-        border: 1px solid #303030 !important;
-        border-top: none !important;
-        border-radius: 0 0 6px 6px !important;
-    }
-    
-    /* === 標題和文字樣式 === */
-    h1, h2, h3, h4, h5, h6 {
-        color: #ffffff !important;
-    }
-    
-    .stMarkdown, .stText, p {
-        color: #d9d9d9 !important;
-    }
-    
-    strong {
-        color: #ffffff !important;
-    }
-    
-    /* === Success/Info/Warning/Error 樣式 === */
+
+    /* Success / Info / Warning / Error */
     .stSuccess {
-        background-color: #1f4c2e !important;
-        color: #73d13d !important;
-        border: 1px solid #389e0d !important;
+        background-color: #FFD700 !important;
+        color: #4B0000 !important;
+        border: 1px solid #4B0000 !important;
     }
-    
     .stInfo {
-        background-color: #003a8c !important;
-        color: #69c0ff !important;
-        border: 1px solid #1677ff !important;
+        background-color: #F5DEB3 !important;
+        color: #4B0000 !important;
+        border: 1px solid #4B0000 !important;
     }
-    
     .stWarning {
-        background-color: #614700 !important;
-        color: #faad14 !important;
-        border: 1px solid #d48806 !important;
+        background-color: #FCE5A0 !important;
+        color: #4B0000 !important;
+        border: 1px solid #4B0000 !important;
     }
-    
     .stError {
-        background-color: #5c0011 !important;
-        color: #ff4d4f !important;
-        border: 1px solid #cf1322 !important;
+        background-color: #8B0000 !important;
+        color: #FFFFFF !important;
+        border: 1px solid #FFD700 !important;
     }
-    
-    /* === Checkbox 樣式 === */
-    .stCheckbox > label {
-        color: #d9d9d9 !important;
-    }
-    
-    .stCheckbox > label > div[data-testid="stMarkdownContainer"] {
-        color: #d9d9d9 !important;
-    }
-    
-    /* === Divider 樣式 === */
-    .stDivider > div {
-        border-color: #404040 !important;
-    }
-    
-    hr {
-        border-color: #404040 !important;
-    }
-    
-    /* === DataFrame/Table 樣式 === */
-    .stDataFrame {
-        background-color: #1f1f1f !important;
-    }
-    
-    .stDataFrame table {
-        background-color: #1f1f1f !important;
-        color: #d9d9d9 !important;
-    }
-    
-    .stDataFrame th {
-        background-color: #262626 !important;
-        color: #ffffff !important;
-        border-bottom: 1px solid #404040 !important;
-    }
-    
-    .stDataFrame td {
-        background-color: #1f1f1f !important;
-        color: #d9d9d9 !important;
-        border-bottom: 1px solid #404040 !important;
-    }
-    
-    /* === Spinner 樣式 === */
-    .stSpinner > div > div {
-        border-top-color: #69c0ff !important;
-    }
-    
-    /* === Progress Bar 樣式 === */
-    .stProgress > div > div > div {
-        background-color: #69c0ff !important;
-    }
-    
-    /* === 滾動條樣式 === */
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: #1f1f1f;
-    }
-    
+
+    /* Scrollbar thumb */
     ::-webkit-scrollbar-thumb {
-        background: #404040;
-        border-radius: 4px;
+        background: #8B0000 !important;
+    }
+
+    /* 隱藏 header / footer */
+    #MainMenu, footer, header {
+        visibility: hidden;
     }
     
-    ::-webkit-scrollbar-thumb:hover {
-        background: #595959;
+    /* 完全清掉中央黑色 header 框背景 */
+    .main div[style*="background-color: rgb(26, 26, 26)"] {
+    background-color: #FCE5A0 !important;
+    color: #4B4B4B !important;
     }
     
-    /* === 隱藏Streamlit品牌 === */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display: none;}
-    header[data-testid="stHeader"] {visibility: hidden;}
-    
-    /* === 容器和卡片樣式 === */
-    .element-container {
-        background-color: transparent !important;
+    /* 完全清掉非 sidebar 黑色背景框 */
+    div[style*="background-color: rgb(26, 26, 26)"]:not([data-testid="stSidebar"]) {
+    background-color: #FCE5A0 !important;
+    color: #4B4B4B !important;
     }
     
-    .stContainer {
-        background-color: #1f1f1f !important;
-        border: 1px solid #303030 !important;
-        border-radius: 8px !important;
-        padding: 16px !important;
+    /* 強制 expander header 為米色（即使有 inline style） */
+    div.streamlit-expanderHeader {
+    background-color: #FCE5A0 !important;
+    color: #4B0000 !important;
+    border: 1px solid #4B0000 !important;
     }
-    
-    /* === 修正特定白色背景元素 === */
-    
-    /* 聊天輸入區域底部容器 */
-    .stBottom,
-    .stBottom > div,
-    div[data-testid="stBottom"],
-    div[data-testid="stBottom"] > div,
-    .css-1544g2n,
-    .css-1y4p8pa {
-        background-color: #141414 !important;
-    }
-    
-    /* 範例按鈕和容器 */
-    .stButton,
-    .stButton > div,
-    .element-container div {
-        background-color: transparent !important;
-    }
-    
-    /* 修正input和textarea的父容器 */
-    .stTextInput,
-    .stTextArea,
-    .stTextInput > div,
-    .stTextArea > div,
-    .stChatInput,
-    .stChatInput > div {
-        background-color: transparent !important;
-    }
-    
-    /* 特殊處理聊天輸入框的所有層級 */
-    .stChatInput *,
-    div[data-testid="stChatInput"] *,
-    .css-1y4p8pa * {
-        background-color: transparent !important;
-    }
-    
-    /* 但保留實際的輸入框背景 */
-    .stChatInput textarea,
-    div[data-testid="stChatInput"] textarea {
-        background-color: #262626 !important;
-    }
-    
-    /* === 響應式調整 === */
-    @media (max-width: 768px) {
-        .main .block-container {
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
-        }
-    }
+
+
+
 </style>
 """, unsafe_allow_html=True)
+
+
+
+
 
 import os
 import json
@@ -401,7 +189,7 @@ from typing import Dict, List, Any
 from dotenv import load_dotenv
 
 # 導入本地模塊
-from query_test import LaborLawAgent
+from query_test import WenWangQianAgent
 from utils.tracking_utils import execute_query_with_tracking
 
 # 載入環境變數
@@ -440,7 +228,7 @@ class RAGStreamlitApp:
         try:
             if "agent" not in st.session_state:
                 with st.spinner("🔧 正在初始化 AI Agent 系統..."):
-                    st.session_state.agent = LaborLawAgent()
+                    st.session_state.agent = WenWangQianAgent()
                 st.success("✅ AI Agent 系統初始化完成！")
         except Exception as e:
             st.error(f"❌ AI Agent 初始化失敗: {e}")
@@ -455,7 +243,7 @@ class RAGStreamlitApp:
             <div style="background-color: #1a1a1a; padding: 16px; margin: -16px -16px 16px -16px; border-bottom: 1px solid #303030;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span style="font-size: 24px;">🤖</span>
-                    <span style="color: #ffffff; font-size: 16px; font-weight: bold;">勞動基準法 RAG 查詢系統</span>
+                    <span style="color: #ffffff; font-size: 16px; font-weight: bold;">文王籤智慧解籤系統</span>
                 </div>
                 <div style="margin-top: 8px;">
                     <span style="background: #003a8c; color: #69c0ff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">v2.0</span>
@@ -508,11 +296,11 @@ class RAGStreamlitApp:
             st.markdown("### 🎯 範例查詢")
             
             example_queries = [
-                "加班費如何計算？包括平日加班和假日加班的費率規定",
-                "工作時間有什麼限制？正常工時和延長工時的規定", 
-                "雇主資遣員工需要遵循什麼程序？資遣費如何計算？",
-                "2025年勞基法有哪些重要的修正內容？"
-            ]
+            "我最近財運如何？",
+            "我的感情運勢會如何發展？",
+            "健康方面有什麼需要注意？",
+            "第123籤是什麼意思？"
+]
             
             for i, query in enumerate(example_queries, 1):
                 if st.button(f"❓ {query[:20]}...", key=f"example_{i}", help=query, use_container_width=True):
@@ -528,7 +316,7 @@ class RAGStreamlitApp:
             <div style="background-color: #1a1a1a; padding: 16px 24px; margin: -16px -16px 24px -16px; border-bottom: 1px solid #303030;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span style="font-size: 24px; color: #69c0ff;">🤖</span>
-                    <span style="color: #ffffff; font-size: 20px; font-weight: bold;">勞動基準法 RAG 查詢系統</span>
+                    <span style="color: #ffffff; font-size: 20px; font-weight: bold;">文王籤智慧解籤系統</span>
                     <span style="background: #003a8c; color: #69c0ff; padding: 2px 8px; border-radius: 4px; font-size: 12px;">v2.0</span>
                 </div>
             </div>
@@ -575,19 +363,11 @@ class RAGStreamlitApp:
             <div style="background: #1f1f1f; border: 1px solid #303030; border-radius: 6px; padding: 16px; margin-bottom: 16px;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div>
-                        <strong style="color: #73d13d; font-size: 14px;">🔍 智能搜索功能:</strong><br>
+                       <strong style="color: #73d13d; font-size: 14px;">🔍 智慧解籤功能:</strong><br>
                         <span style="color: #d9d9d9; line-height: 1.6;">
-                            • 語義理解與精確匹配<br>
-                            • 智能重排序優化<br>
-                            • 適用於所有法條查詢
-                        </span>
-                    </div>
-                    <div>
-                        <strong style="color: #69c0ff; font-size: 14px;">🌐 網路搜索功能:</strong><br>
-                        <span style="color: #d9d9d9; line-height: 1.6;">
-                            • 最新修法動態查詢<br>
-                            • 政策解釋和實務案例<br>
-                            • 相關新聞和時事資訊
+                            • 語義理解與籤詩匹配<br>
+                            • 智能重排序找最佳籤詩<br>
+                            • 適用於求財、感情、健康等各類詢問
                         </span>
                     </div>
                 </div>
@@ -634,7 +414,7 @@ class RAGStreamlitApp:
                 <div style="text-align: center; padding: 40px; color: #8c8c8c;">
                     <div style="font-size: 48px; margin-bottom: 16px; color: #69c0ff;">🤖</div>
                     <div style="font-size: 16px; font-weight: bold; color: #ffffff; margin-bottom: 8px;">
-                        歡迎使用勞動基準法 RAG 查詢系統
+                        歡迎使用文王籤智慧解籤系統
                     </div>
                     <div style="color: #8c8c8c;">
                         請輸入您的問題，或點擊左側的範例查詢開始對話
@@ -669,7 +449,7 @@ class RAGStreamlitApp:
         """, unsafe_allow_html=True)
         
         # 用戶輸入 - 使用chat_input模擬固定在底部
-        if prompt := st.chat_input("請輸入您關於勞動基準法的問題..."):
+        if prompt := st.chat_input("請輸入您想詢問的問題或籤號..."):
             self.process_query(prompt)
             
         # 輸入提示 - 仿照React的提示文字
@@ -819,9 +599,10 @@ class RAGStreamlitApp:
                         
                         # 完整內容 - 使用checkbox來控制顯示
                         if chunk.get("full_content"):
-                            show_full = st.checkbox(f"顯示完整內容", key=f"show_full_{i}")
+                            key_suffix = chunk.get("id", i)
+                            show_full = st.checkbox(f"顯示完整內容", key=f"show_full_{key_suffix}")
                             if show_full:
-                                st.text_area("完整內容:", value=chunk["full_content"], height=150, disabled=True, key=f"chunk_content_{i}")
+                                st.text_area("完整內容:", value=chunk["full_content"], height=150, disabled=True, key=f"chunk_content_{key_suffix}")
                         
                         st.divider()
                 

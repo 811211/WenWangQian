@@ -1,5 +1,5 @@
 """
-勞動基準法RAG查詢測試工具 - 簡化版本
+文王籤解籤 工具 - 簡化版本
 只使用向量搜索 + 強力繁體中文Reranker模型
 """
 
@@ -11,7 +11,6 @@ from typing import List, Dict, Any, Callable
 import numpy as np
 from datetime import datetime
 from dotenv import load_dotenv
-from tavily import TavilyClient
 from utils.database_config import get_database_config
 from utils.ai_client import get_embedding_for_content, chat_with_azure_openai
 from sentence_transformers import CrossEncoder
@@ -21,7 +20,6 @@ import time
 # 載入環境變數
 load_dotenv()
 
-tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
 class ChineseReranker:
     """繁體中文專用 Reranker 模型"""
@@ -141,25 +139,6 @@ class WenWangQianAgent:
     def _setup_tools(self):
         """設置可用的工具和函數定義"""
         self.tools = {
-            "web_search": {
-                "function": self._tool_web_search,
-                "description": "使用網路搜索獲取最新的相關資訊、相關新聞或其他補充資料",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "搜索查詢，用於在網路上搜索相關資訊"
-                        },
-                        "max_results": {
-                            "type": "integer",
-                            "description": "返回結果數量限制，默認為5",
-                            "default": 5
-                        }
-                    },
-                    "required": ["query"]
-                }
-            },
             "vector_search": {
                 "function": self._tool_vector_search,
                 "description": "使用語義向量搜索查找相關的籤文，自動使用繁體中文Reranker模型重新排序結果",
@@ -258,41 +237,6 @@ class WenWangQianAgent:
             print(f"❌ {error_msg}")
             return {"error": error_msg}
 
-    def _tool_web_search(self, query: str, max_results: int = 5) -> Dict[str, Any]:
-        """工具：網路搜索"""
-        print(f"🌐 執行網路搜索: '{query}'")
-        
-        try:
-            # 使用 Tavily 客戶端進行搜索
-            search_result = tavily_client.search(query, max_results=max_results)
-            
-            # 提取有用的搜索結果
-            if search_result and 'results' in search_result:
-                results = []
-                for item in search_result['results']:
-                    result_item = {
-                        'title': item.get('title', ''),
-                        'content': item.get('content', ''),
-                        'url': item.get('url', ''),
-                        'score': item.get('score', 0)
-                    }
-                    results.append(result_item)
-                
-                print(f"✅ 網路搜索找到 {len(results)} 個結果")
-                
-                return {
-                    "success": True,
-                    "results": results,
-                    "count": len(results),
-                    "query": query
-                }
-            else:
-                return {"error": "網路搜索未返回有效結果"}
-                
-        except Exception as e:
-            error_msg = f"網路搜索時發生錯誤: {e}"
-            print(f"❌ {error_msg}")
-            return {"error": error_msg}
 
     def chat_with_aoai_gpt(self, messages: List[Dict], tools: List[Dict] = None) -> tuple:
         """與 Azure OpenAI GPT 進行對話"""
