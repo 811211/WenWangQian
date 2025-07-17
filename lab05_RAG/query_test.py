@@ -16,6 +16,9 @@ from utils.ai_client import get_embedding_for_content, chat_with_azure_openai
 from sentence_transformers import CrossEncoder
 import concurrent.futures
 import time
+import re
+import psycopg2
+
 
 # 載入環境變數
 load_dotenv()
@@ -346,63 +349,31 @@ class WenWangQianAgent:
             return user_question
 
     def generate_agent_response(self, user_question: str, conversation_history: List[Dict[str, str]] = None) -> str:
-        """生成 AI Agent 回應"""
+        """生成 AI Agent 回應（純 fallback 模式，完全不檢查籤號）"""
         print(f"🤖 AI Agent 開始處理問題: '{user_question}'")
 
-        match = re.search(r'\b(\d+)\b', user_question)
-        print(f"🔍 re.search() 匹配結果: {match}")
-
-        if match:
-            lot_number = match.group(1)
-            print(f"🎯 抽取到數字 lot_number = {lot_number}")
-            sql = f"SELECT content FROM \"2500567RAG\" WHERE context = '文王籤 籤號 {lot_number} '"
-            try:
-                print("⚡ 嘗試建立資料庫連線...")
-                conn = psycopg2.connect(
-                    host=os.getenv("PG_HOST", "localhost"),
-                    port=int(os.getenv("PG_PORT", 5432)),
-                    dbname=os.getenv("PG_DATABASE", "labor_law_rag"),
-                    user=os.getenv("PG_USER", "postgres"),
-                    password=os.getenv("PG_PASSWORD", "")
-                )
-                print("✅ 資料庫連線成功")
-                with conn.cursor() as cur:
-                    print(f"⚡ 執行 SQL 查詢: {sql}")
-                    cur.execute(sql)
-                    row = cur.fetchone()
-                conn.close()
-                if row:
-                    print(f"🎯 直接命中文王籤 第 {lot_number} 籤")
-                    return row[0]
-            except Exception as e:
-                print(f"❌ 籤號直接查詢錯誤: {e}")
-
-        
-        # 步驟1：改寫和完善查詢
+        # 📝 步驟1：改寫和完善查詢
         print("\n📝 步驟1: 查詢改寫與完善")
         improved_query = self.rewrite_query(user_question)
-        
-        # 構建system prompt
+
+        # 構建 system prompt
         system_prompt = """你是一個專業的文王籤解籤 AI 助手。你可以使用以下工具來回答用戶問題：
 
-1. vector_search - 向量搜索功能（主要工具）：
-   - 根據使用者問題，找出最相關的籤詩
-   - 自動使用繁體中文Reranker模型重新排序結果
-   - 適用於所有求籤、問卜、問運、解籤問題
+    1. vector_search - 向量搜索功能（主要工具）：
+    - 根據使用者問題，找出最相關的籤詩
+    - 自動使用繁體中文Reranker模型重新排序結果
+    - 適用於所有求籤、問卜、問運、解籤問題
 
-
-
-回答要求：
-1. 優先使用 vector_search 找出相關籤詩
-2. 若需要可選擇使用 web_search 搜尋外部資料
-3. 回答要友善、易懂
-4. 引用具體籤詩內容（包含籤號）
-5. 提供簡單建議與解釋
-6. 根據對話歷史保持連貫"""
+    回答要求：
+    1. 優先使用 vector_search 找出相關籤詩
+    2. 回答要友善、易懂
+    3. 引用具體籤詩內容（包含籤號）
+    4. 提供簡單建議與解釋
+    5. 根據對話歷史保持連貫"""
 
         # 初始化對話
         messages = [{"role": "system", "content": system_prompt}]
-        
+
         # 加入對話歷史
         if conversation_history:
             print(f"📚 載入 {len(conversation_history)} 條對話歷史")
@@ -412,85 +383,68 @@ class WenWangQianAgent:
                         "role": msg["role"],
                         "content": msg["content"]
                     })
-        
+
         # 加入當前問題
         messages.append({"role": "user", "content": improved_query})
-        
+
         # AI Agent 迭代處理
         max_iterations = 3
         for iteration in range(max_iterations):
             print(f"\n🔄 AI Agent 迭代 {iteration + 1}/{max_iterations}")
-            
+
             try:
-                # 呼叫 GPT 並傳遞工具定義
                 message, input_tokens, output_tokens = self.chat_with_aoai_gpt(
-                    messages, 
+                    messages,
                     self.tool_definitions
                 )
-                
+
                 print(f"📊 Token使用: 輸入={input_tokens}, 輸出={output_tokens}")
-                
-                # 添加助手回應到對話歷史
+
                 messages.append({
                     "role": "assistant",
                     "content": message.content,
-                    "tool_calls": [tool_call.__dict__ if hasattr(tool_call, '__dict__') else tool_call 
-                                 for tool_call in message.tool_calls] if message.tool_calls else None
+                    "tool_calls": [tool_call.__dict__ if hasattr(tool_call, '__dict__') else tool_call
+                                for tool_call in message.tool_calls] if message.tool_calls else None
                 })
-                
-                # 檢查是否需要執行工具
+
                 if message.tool_calls:
                     print(f"🔧 需要執行 {len(message.tool_calls)} 個工具")
-                    
                     if len(message.tool_calls) > 1:
-                        # 多個工具 - 使用並行執行
-                        print("🚀 檢測到多個工具，使用並行執行模式...")
-                        
-                        # 運行並行工具執行
+                        print("🚀 多工具並行執行...")
                         tool_results = self.execute_tools_concurrently(message.tool_calls)
-                        
-                        # 將結果添加到對話歷史
                         for tool_result_info in tool_results:
                             tool_call = tool_result_info['tool_call']
                             tool_result = tool_result_info['result']
-                            
                             messages.append({
                                 "role": "tool",
                                 "tool_call_id": tool_call.id,
                                 "content": json.dumps(tool_result, ensure_ascii=False, default=str)
                             })
                     else:
-                        # 單個工具 - 使用傳統順序執行
-                        print("🔧 單個工具，使用順序執行模式...")
+                        print("🔧 單個工具執行...")
                         tool_call = message.tool_calls[0]
                         function_name = tool_call.function.name
                         function_args = json.loads(tool_call.function.arguments)
-                        
                         print(f"⚙️ 執行工具: {function_name} 參數: {function_args}")
-                        
-                        # 執行工具
                         tool_result = self.execute_tool(function_name, **function_args)
-                        
-                        # 添加工具結果到對話
                         messages.append({
                             "role": "tool",
                             "tool_call_id": tool_call.id,
                             "content": json.dumps(tool_result, ensure_ascii=False, default=str)
                         })
-                        
                         print(f"✅ 工具 {function_name} 執行完成")
                 else:
-                    # 沒有工具調用，返回最終回答
                     if message.content:
                         print(f"🎯 AI Agent 完成回答")
                         return message.content
-                    
+
             except Exception as e:
                 error_msg = f"AI Agent 處理錯誤: {e}"
                 print(f"❌ {error_msg}")
                 return f"抱歉，處理您的問題時發生錯誤：{error_msg}"
-        
+
         return "抱歉，AI Agent 達到最大迭代次數，無法完成回答。"
+
     
     def display_llm_response(self, llm_response: str):
         """顯示LLM生成的回答"""
@@ -539,6 +493,33 @@ def main():
         if query:
             print("\n🚀 AI Agent 開始處理您的問題...")
             print("-" * 40)
+            
+            # ⭐ 新增這段：籤號直接查詢 bypass embedding
+            if query.isdigit():
+                lot_number = query
+                sql = f"SELECT content FROM \"2500567RAG\" WHERE context = '文王籤 籤號 {lot_number} '"
+                try:
+                    print(f"⚡ 嘗試直接查詢文王籤 第 {lot_number} 籤")
+                    conn = psycopg2.connect(
+                        host=os.getenv("PG_HOST", "localhost"),
+                        port=int(os.getenv("PG_PORT", 5432)),
+                        dbname=os.getenv("PG_DATABASE", "labor_law_rag"),
+                        user=os.getenv("PG_USER", "postgres"),
+                        password=os.getenv("PG_PASSWORD", "")
+                    )
+                    with conn.cursor() as cur:
+                        cur.execute(sql)
+                        row = cur.fetchone()
+                    conn.close()
+                    if row:
+                        print(f"✅ 找到文王籤 第 {lot_number} 籤內容：\n")
+                        print(row[0])
+                        continue  # ⭐ 完成直接查詢後，直接 continue，跳過下面的 AI Agent
+                    else:
+                        print(f"⚠️ 找不到文王籤 第 {lot_number} 籤，將改用 AI Agent 搜尋...")
+                except Exception as e:
+                    print(f"❌ 資料庫查詢失敗: {e}")
+                    print("將改用 AI Agent 搜尋...")
             
             try:
                 response = agent.generate_agent_response(query)
